@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-visual-analysis"
+description = "Enables the get_visual_analysis command without any pre-configured scope."
+commands.allow = ["get_visual_analysis"]
+
+[[permission]]
+identifier = "deny-get-visual-analysis"
+description = "Denies the get_visual_analysis command without any pre-configured scope."
+commands.deny = ["get_visual_analysis"]

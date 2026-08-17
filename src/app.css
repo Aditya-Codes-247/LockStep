@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* ---- Theme tokens: dark (default) & light ---- */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #151b23;
+  --surface-2: #1c2430;
+  --surface-3: #26313f;
+  --border: #2b3644;
+  --border-strong: #3a4656;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --faint: #6e7681;
+  --accent: #387ed1;
+  --accent-strong: #4c8fdb;
+  --accent-2: #8b5cf6;
+  --ok: #2ea043;
+  --ok-soft: #122b1d;
+  --warn: #d29922;
+  --danger: #f85149;
+  --danger-soft: #33211f;
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f0f3f7;
+  --surface: #ffffff;
+  --surface-2: #f3f6fa;
+  --surface-3: #e6ecf3;
+  --border: #d3dbe4;
+  --border-strong: #b8c3d0;
+  --text: #1f2328;
+  --muted: #57626e;
+  --faint: #7d8892;
+  --accent: #387ed1;
+  --accent-strong: #2a6cb8;
+  --accent-2: #7c3aed;
+  --ok: #1a7f37;
+  --ok-soft: #dcfce7;
+  --warn: #9a6700;
+  --danger: #d1242f;
+  --danger-soft: #ffeae8;
+  --shadow: rgba(22, 33, 44, 0.18);
+}
+
+/* Map tokens into Tailwind named colors so `bg-surface` etc. work. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-alt: var(--accent-2);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-ui:
+    "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Thin, subtle scrollbars that match the theme */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid var(--surface);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Prevent text selection bleeding across chrome chrome; keep inputs selectable */
+.user-select-none {
+  user-select: none;
+}
+input,
+textarea {
+  user-select: text;
+}
+
+/* Focus rings that read well in both themes */
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}

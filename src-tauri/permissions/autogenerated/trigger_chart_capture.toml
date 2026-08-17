@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-trigger-chart-capture"
+description = "Enables the trigger_chart_capture command without any pre-configured scope."
+commands.allow = ["trigger_chart_capture"]
+
+[[permission]]
+identifier = "deny-trigger-chart-capture"
+description = "Denies the trigger_chart_capture command without any pre-configured scope."
+commands.deny = ["trigger_chart_capture"]

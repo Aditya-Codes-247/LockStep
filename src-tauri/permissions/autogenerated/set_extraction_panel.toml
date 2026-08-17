@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-extraction-panel"
+description = "Enables the set_extraction_panel command without any pre-configured scope."
+commands.allow = ["set_extraction_panel"]
+
+[[permission]]
+identifier = "deny-set-extraction-panel"
+description = "Denies the set_extraction_panel command without any pre-configured scope."
+commands.deny = ["set_extraction_panel"]

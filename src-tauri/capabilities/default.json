@@ -1,0 +1,33 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main (UI) webview only. With the application ACL manifest enabled every app command must be granted explicitly; only these are reachable from the UI. Child tab webviews are NOT listed here: the only command they may ever call is extract_dom (see extractor.json), so remote broker sites cannot reach any other Tauri API.",
+  "webviews": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "allow-check-url",
+    "allow-get-config",
+    "allow-add-domain",
+    "allow-remove-domain",
+    "allow-add-bookmark",
+    "allow-remove-bookmark",
+    "allow-update-settings",
+    "allow-open-url",
+    "allow-navigate-tab",
+    "allow-close-tab",
+    "allow-set-active",
+    "allow-set-extraction-panel",
+    "allow-go-back",
+    "allow-go-forward",
+    "allow-reload-tab",
+    "allow-stop-tab",
+    "allow-home-tab",
+    "allow-get-tabs",
+    "allow-get-extraction",
+    "allow-list-extractions",
+    "allow-get-visual-analysis",
+    "allow-list-visual-analyses",
+    "allow-trigger-chart-capture"
+  ]
+}

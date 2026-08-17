@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BTCINR · CoinSwitch Pro</title>
+    <style>td, th { border: 1px solid #ccc; padding: 4px 8px; }</style>
+  </head>
+  <body>
+    <!-- CoinSwitch DOM markers the extractor detects -->
+    <h1>BTCINR</h1>
+    <main>
+      <table class="market">
+        <thead><tr><th>Coin</th><th>Price</th><th>Change</th><th>Volume</th></tr></thead>
+        <tbody>
+          <tr class="coin-row" data-testid="coin-row-btc">
+            <td class="coin-name">BTCINR</td>
+            <td class="price">63,033.00</td>
+            <td class="change">+1.2%</td>
+            <td class="volume">1,234</td>
+          </tr>
+          <tr class="coin-row" data-testid="coin-row-eth">
+            <td class="coin-name">ETHINR</td>
+            <td class="price">1,880.00</td>
+            <td class="change">-0.4%</td>
+            <td class="volume">9,876</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="chart-area">
+        <button class="interval active">1m</button>
+        <canvas width="780" height="512"></canvas>
+      </div>
+    </main>
+    <script src="./extractor.js"></script>
+  </body>
+</html>

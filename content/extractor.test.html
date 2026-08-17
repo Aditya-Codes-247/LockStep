@@ -1,0 +1,143 @@
+<!doctype html>
+<!--
+  Headless / manual harness for content/extractor.ts.
+
+  Open this file directly (file://) or serve the folder, then in a console:
+    window.__EXTRACTIONS__           // every snapshot captured
+    window.addEventListener('extraction-ready', e => console.log(e.detail))
+
+  Run headless (no Tauri host) with Chrome/Edge DevTools:
+    msedge --headless=new --disable-gpu --dump-dom "file://...extractor.test.html?lsb=test"
+  The page's fake DOM lets the extractor detect 'dhan' via DOM markers
+  and produces priced rows so dataQuality lands on 'good'. A fake ECharts
+  chart instance lets the headless check also assert candle extraction.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>RELIANCE · 5m · Dhan</title>
+    <style>
+      table { border-collapse: collapse; }
+      td, th { border: 1px solid #ccc; padding: 4px 8px; }
+      .chart-area { width: 600px; height: 200px; }
+    </style>
+  </head>
+  <body>
+    <!-- DOM marker that the extractor treats as a Dhan signal -->
+    <div class="instrument hidden">Dhan</div>
+
+    <main>
+      <span class="instrument">NIFTY 50</span>
+      <table id="watchlist" class="market-watch">
+        <thead>
+          <tr><th>Symbol</th><th>Company</th><th>LTP</th><th>Change %</th><th>Net Chg</th><th>Volume</th></tr>
+        </thead>
+        <tbody>
+          <tr class="scrip-row">
+            <td class="name">RELIANCE</td>
+            <td class="company-name">Reliance Industries</td>
+            <td class="market-price">2,900.45</td>
+            <td class="change">+1.23%</td>
+            <td class="change">+35.20</td>
+            <td class="volume">12,34,567</td>
+          </tr>
+          <tr class="scrip-row">
+            <td class="name">TCS</td>
+            <td class="company-name">Tata Consultancy</td>
+            <td class="market-price">3,950.10</td>
+            <td class="change">-0.45%</td>
+            <td class="change">-17.85</td>
+            <td class="volume">98,765</td>
+          </tr>
+          <tr class="scrip-row">
+            <td class="name">HDFCBANK</td>
+            <td class="company-name">HDFC Bank</td>
+            <td class="market-price">1,504.00</td>
+            <td class="change">0.00%</td>
+            <td class="change">0.00</td>
+            <td class="volume">4,56,789</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- fake chart the extractor treats as a rendered price chart -->
+      <div class="chart-area">
+        <button class="interval active">5m</button>
+        <canvas width="500" height="150"></canvas>
+      </div>
+    </main>
+
+    <script>
+      // Fake ECharts library: the extractor looks for a global echarts and an
+      // element carrying the instance. We simulate getInstanceByDom on the
+      // chart host with a small OHLC series.
+      var __chartHost = null;
+      window.echarts = {
+        getInstanceByDom: function (el) {
+          if (!el) return null;
+          __chartHost = el;
+          return {
+            getOption: function () {
+              var base = Date.now() - 3 * 60000;
+              var candles = [];
+              for (var i = 0; i < 3; i++) {
+                candles.push([base + i * 60000, 2900 + i, 2901 + i, 2899 + i, 2902 + i]);
+              }
+              return {
+                xAxis: [{ data: candles.map(function (c) { return c[0]; }) }],
+                series: [{ type: 'candlestick', data: candles.map(function (c) { return c.slice(1); }) }],
+              };
+            },
+          };
+        },
+      };
+    </script>
+
+    <!-- Standalone copy = same bytes injected by Rust via initialization_script -->
+    <script src="./extractor.js"></script>
+
+    <script>
+      // Headless harness: when loaded with ?lsb=test, stamp the latest snapshot
+      // into a DOM attribute so `--headless=new --dump-dom` can surface it
+      // without a browser console.
+      if (/[?&]lsb=test/.test(window.location.search)) {
+        window.addEventListener('extraction-ready', (e) => {
+          const s = e.detail;
+          const stamp = {
+            quality: s.dataQuality,
+            durationMs: s.extractionDurationMs,
+            symbols: (s.symbols || []).length,
+            first: (s.symbols || [])[0] || null,
+            chart: s.chart || null,
+          };
+          document.body.setAttribute('data-lsb-extract', JSON.stringify(stamp));
+        });
+
+        // Chart capture path: draw a real (non-tainted) bitmap onto the chart
+        // canvas, then run the on-demand capture and stamp its payload.
+        window.addEventListener('load', async () => {
+          const canvas = document.querySelector('.chart-area canvas');
+          if (canvas && canvas.getContext) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#387ed1';
+            ctx.fillRect(0, 0, 60, 40);
+            ctx.fillStyle = '#111';
+            ctx.fillRect(60, 0, 60, 40);
+          }
+          const cap = await window.captureChartCanvas();
+          const stamp = {
+            status: cap.status,
+            broker: cap.brokerType,
+            symbol: cap.symbol,
+            timeframe: cap.timeframe,
+            mime: cap.mime,
+            width: cap.width,
+            height: cap.height,
+            hasImage: typeof cap.image === 'string' && cap.image.length > 0,
+          };
+          document.body.setAttribute('data-lsb-capture', JSON.stringify(stamp));
+        });
+      }
+    </script>
+  </body>
+</html>

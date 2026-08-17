@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-home-tab"
+description = "Enables the home_tab command without any pre-configured scope."
+commands.allow = ["home_tab"]
+
+[[permission]]
+identifier = "deny-home-tab"
+description = "Denies the home_tab command without any pre-configured scope."
+commands.deny = ["home_tab"]

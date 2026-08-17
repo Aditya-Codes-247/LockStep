@@ -1,0 +1,20 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "extractor",
+  "description": "Grants ONLY extract_dom and capture_and_analyze_chart to remote broker pages loaded inside the pre-created child tab webviews (tab-1..tab-16). The remote origins are locked to the supported broker domains so a logged-in trading page can push its DOM snapshot back to the scanner and hand an on-demand chart capture to the OpenCode analysis pipeline. No other command is reachable from remote content. When a new broker is added to the whitelist, also add its origins here and to the extractor content script.",
+  "webviews": ["tab-1", "tab-2", "tab-3", "tab-4", "tab-5", "tab-6", "tab-7", "tab-8", "tab-9", "tab-10", "tab-11", "tab-12", "tab-13", "tab-14", "tab-15", "tab-16"],
+  "remote": {
+    "urls": [
+      "https://angelone.in/*",
+      "https://www.angelone.in/*",
+      "https://*.angelone.in/*",
+      "https://coinswitch.co/*",
+      "https://www.coinswitch.co/*",
+      "https://*.coinswitch.co/*",
+      "https://dhan.co/*",
+      "https://www.dhan.co/*",
+      "https://*.dhan.co/*"
+    ]
+  },
+  "permissions": ["allow-extract-dom", "allow-capture-and-analyze-chart"]
+}

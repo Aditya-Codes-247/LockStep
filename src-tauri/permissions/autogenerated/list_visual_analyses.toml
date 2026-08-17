@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-list-visual-analyses"
+description = "Enables the list_visual_analyses command without any pre-configured scope."
+commands.allow = ["list_visual_analyses"]
+
+[[permission]]
+identifier = "deny-list-visual-analyses"
+description = "Denies the list_visual_analyses command without any pre-configured scope."
+commands.deny = ["list_visual_analyses"]

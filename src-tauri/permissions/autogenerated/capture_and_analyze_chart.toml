@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-capture-and-analyze-chart"
+description = "Enables the capture_and_analyze_chart command without any pre-configured scope."
+commands.allow = ["capture_and_analyze_chart"]
+
+[[permission]]
+identifier = "deny-capture-and-analyze-chart"
+description = "Denies the capture_and_analyze_chart command without any pre-configured scope."
+commands.deny = ["capture_and_analyze_chart"]
