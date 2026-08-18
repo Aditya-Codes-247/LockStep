@@ -28,6 +28,8 @@ fn main() {
             "capture_and_analyze_chart",
             "get_visual_analysis",
             "list_visual_analyses",
+            "opencode_login",
+            "opencode_login_status",
             "trigger_chart_capture",
         ]),
     );

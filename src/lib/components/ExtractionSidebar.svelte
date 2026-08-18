@@ -335,6 +335,37 @@
           <p class="mt-1.5 text-[10px] leading-relaxed text-danger">{vis.error}</p>
         {/if}
 
+        {#if app.opencodeLogin.loggedIn && !app.opencodeLoginPending}
+          <div class="mt-2 flex items-center gap-2 rounded-md border border-line/60 bg-surface-2/50 px-2 py-1.5 text-[10px]">
+            <span class="text-ok">Logged in</span>
+            {#if app.opencodeLogin.providers.length > 0}
+              <span class="truncate text-faint" title={app.opencodeLogin.credsPath ?? undefined}>
+                · {app.opencodeLogin.providers.join(", ")}
+              </span>
+            {/if}
+            <button
+              class="ml-auto shrink-0 text-faint transition-colors hover:text-ink"
+              title="Open the credential manager to add another provider"
+              onclick={() => app.loginOpenCode()}
+            >Manage</button>
+          </div>
+        {:else}
+          <div class="mt-2 flex items-center gap-2 rounded-md border border-dashed border-line bg-surface-2/50 px-2 py-1.5 text-[10px]">
+            <span class="text-faint">
+              {app.opencodeLoginPending
+                ? "Waiting for login to complete…"
+                : "AI needs opencode authentication"}
+            </span>
+            <button
+              class="ml-auto shrink-0 rounded-md border border-line px-2 py-0.5 text-ink transition-colors hover:bg-surface-3 disabled:opacity-50"
+              disabled={app.opencodeLoginPending}
+              onclick={() => app.loginOpenCode()}
+            >
+              {app.opencodeLoginPending ? "Opening…" : "Log in"}
+            </button>
+          </div>
+        {/if}
+
         <button
           class="mt-2 w-full rounded-md border border-line px-2 py-1 text-center text-[11px] text-muted transition-colors hover:bg-surface-3 hover:text-ink"
           disabled={app.visualPending[snap.broker] || !snap.data.chart}

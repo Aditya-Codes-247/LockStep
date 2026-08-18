@@ -291,6 +291,124 @@ pub fn list_visual_analyses(app: AppHandle) -> Vec<VisualAnalysis> {
     map.values().cloned().collect()
 }
 
+// ---------------------------------------------------------------------------
+// opencode CLI per-user authentication
+// ---------------------------------------------------------------------------
+
+/// Emitted after an interactive `opencode providers login` attempt finishes
+/// (the spawned console window closes), carrying the fresh [`LoginStatus`].
+const EVT_OPENCODE_LOGIN: &str = "opencode-login";
+
+/// Snapshot of the bundled opencode CLI credential state for this user.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoginStatus {
+    pub logged_in: bool,
+    /// Provider names found in the credential store (best effort, for display).
+    pub providers: Vec<String>,
+    /// Path of the credential file opencode uses (when determinable).
+    pub creds_path: Option<String>,
+}
+
+/// Candidate locations of opencode's credential store. `opencode providers list`
+/// reports `~/.local/share/opencode/auth.json` on every platform (including
+/// Windows); an `XDG_DATA_HOME` override is honoured on Unix.
+fn opencode_creds_file(app: &AppHandle) -> Option<PathBuf> {
+    #[cfg(not(windows))]
+    if let Some(xdg) = std::env::var_os("XDG_DATA_HOME") {
+        let cand = PathBuf::from(xdg).join("opencode").join("auth.json");
+        if cand.is_file() {
+            return Some(cand);
+        }
+    }
+    let home = app.path().home_dir().ok()?;
+    Some(
+        home.join(".local")
+            .join("share")
+            .join("opencode")
+            .join("auth.json"),
+    )
+}
+
+/// Read the current login state by inspecting opencode's credential store.
+/// A non-trivial `auth.json` means credentials are stored; its provider keys
+/// (when parseable) are surfaced so the UI can show who is logged in.
+fn check_opencode_login(app: &AppHandle) -> LoginStatus {
+    let creds_path = opencode_creds_file(app);
+    let mut providers: Vec<String> = Vec::new();
+    let mut logged_in = false;
+
+    if let Some(path) = creds_path.as_ref() {
+        if let Ok(meta) = fs::metadata(path) {
+            if meta.len() > 2 {
+                if let Ok(text) = fs::read_to_string(path) {
+                    if let Ok(value) = serde_json::from_str::<Value>(&text) {
+                        if let Some(obj) = value.as_object() {
+                            for key in obj.keys() {
+                                if !key.trim().is_empty() {
+                                    providers.push(key.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                logged_in = true;
+            }
+        }
+    }
+
+    providers.sort();
+    providers.dedup();
+    LoginStatus {
+        logged_in,
+        providers,
+        creds_path: creds_path.map(|p| p.to_string_lossy().into_owned()),
+    }
+}
+
+/// Launch the interactive per-user login flow: opens `opencode providers login`
+/// in a real terminal window (Windows: a dedicated new console) so the user can
+/// pick a provider and authenticate. Returns the *current* status immediately;
+/// the final result arrives on the `opencode-login` event once the window closes.
+#[tauri::command]
+pub fn opencode_login(app: AppHandle) -> Result<LoginStatus, String> {
+    let (program, shell) = opencode_command(Some(&app))?;
+
+    let mut command = Command::new(&program);
+    if let Some(flag) = shell {
+        // Windows shim fallback: cmd.exe /C opencode …
+        command.arg(flag).arg("opencode");
+    }
+    command.args(["providers", "login"]);
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // Own visible console so the interactive TUI works from a GUI app.
+        const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
+        command.creation_flags(CREATE_NEW_CONSOLE);
+    }
+
+    let mut child = command
+        .spawn()
+        .map_err(|e| format!("failed to spawn '{program}': {e}"))?;
+
+    let thread_app = app.clone();
+    std::thread::spawn(move || {
+        let _ = child.wait();
+        let status = check_opencode_login(&thread_app);
+        let _ = thread_app.emit(EVT_OPENCODE_LOGIN, &status);
+    });
+
+    Ok(check_opencode_login(&app))
+}
+
+/// Current login state (for the extraction panel on open / initial load).
+#[tauri::command]
+pub fn opencode_login_status(app: AppHandle) -> LoginStatus {
+    check_opencode_login(&app)
+}
+
 fn emit_visual(app: &AppHandle, broker: &str, symbol: &str, analysis: &VisualAnalysis) {
     let _ = app.emit(
         EVT_VISUAL,
@@ -447,6 +565,7 @@ fn try_analyze_visual(
     let run_attempt = |attempt: u32| -> Result<AttemptOutput, String> {
         run_opencode_attempt(
             &*log,
+            app,
             &chart_prompt,
             &model,
             &tmp,
@@ -468,6 +587,7 @@ type AttemptOutput = (ExitStatus, Vec<u8>);
 /// spawn failure; a non-zero/timed-out exit is reflected in the status.
 fn run_opencode_attempt(
     log: &Logger,
+    app: &AppHandle,
     chart_prompt: &str,
     model: &str,
     tmp: &PathBuf,
@@ -476,6 +596,9 @@ fn run_opencode_attempt(
     attempt: u32,
     started: Instant,
 ) -> Result<AttemptOutput, String> {
+    // Resolve the launcher once so the exact program (bundled sidecar vs PATH)
+    // is logged and shared by the retry attempts.
+    let (program, shell) = opencode_command(Some(app))?;
     // TEMP DEBUG — exact command + args we are about to run, plus the full
     // prompt text verbatim (not just its length).
     log.log(
@@ -484,6 +607,8 @@ fn run_opencode_attempt(
             "broker": broker,
             "symbol": symbol,
             "attempt": attempt,
+            "program": program,
+            "shell": shell,
             "command": "opencode",
             "args": ["run", "--format", "json", "-m", model, "-f", "<chart.png>", "<prompt>"],
             "prompt": chart_prompt,
@@ -494,7 +619,7 @@ fn run_opencode_attempt(
         }),
     );
 
-    let mut child = match spawn_opencode_with_file(chart_prompt, model, Some(tmp)) {
+    let mut child = match spawn_opencode_with_file(&program, shell, chart_prompt, model, Some(tmp)) {
         Ok(c) => {
             log.log("opencode_spawn_ok", json!({ "pid": c.id(), "attempt": attempt }));
             c
@@ -814,11 +939,58 @@ fn build_chart_prompt(payload: &CapturePayload, ohlc: Option<&OhlcContext>) -> S
     prompt
 }
 
+/// Locate the opencode binary bundled via `bundle.externalBin`. Tauri ships
+/// sidecars inside the resource directory under `bin/opencode` (`opencode.exe`
+/// on Windows); on Windows `resource_dir()` is the app exe's directory, where
+/// the sidecar sits directly next to the exe. Check both layouts.
+fn bundled_opencode(app: &AppHandle) -> Option<String> {
+    let name = if cfg!(windows) { "opencode.exe" } else { "opencode" };
+    let base = app.path().resource_dir().ok()?;
+    for rel in [format!("bin/{name}"), name.to_string()] {
+        let candidate = base.join(&rel);
+        if candidate.is_file() {
+            return Some(candidate.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
+/// Locate the staged binary under `src-tauri/binaries/` for the current
+/// target triple — used when no `AppHandle` is available (unit tests, plain
+/// `cargo` builds outside the Tauri CLI). The name matches `prepare-opencode.mjs`.
+fn staged_opencode_binary() -> Option<String> {
+    let triple = option_env!("TAURI_ENV_TARGET_TRIPLE")?;
+    let name = format!(
+        "opencode-{triple}{}",
+        if cfg!(windows) { ".exe" } else { "" }
+    );
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("binaries")
+        .join(name);
+    p.is_file().then(|| p.to_string_lossy().into_owned())
+}
+
 /// Resolve how to launch the OpenCode CLI on this platform.
 ///
 /// Returns `(program, shell)` where `shell == Some("/C")` means `program`
 /// must be invoked as `cmd.exe /C opencode …` (Windows `.cmd` shim fallback).
-fn opencode_command() -> Result<(String, Option<&'static str>), String> {
+///
+/// Resolution order: the bundled sidecar (works on every machine, no global
+/// install needed) → the repo-staged binary (tests/plain cargo) → a real
+/// `opencode.exe` found by `resolve_opencode_exe` → the plain `opencode` name
+/// on PATH.
+fn opencode_command(app: Option<&AppHandle>) -> Result<(String, Option<&'static str>), String> {
+    // 1) Bundled sidecar — the primary path; present in dev and release
+    //    builds thanks to tauri-build copying `externalBin` next to the app.
+    if let Some(app) = app {
+        if let Some(exe) = bundled_opencode(app) {
+            return Ok((exe, None));
+        }
+    }
+    // 2) Repo-staged binary (no AppHandle, e.g. `cargo test`).
+    if let Some(exe) = staged_opencode_binary() {
+        return Ok((exe, None));
+    }
     #[cfg(windows)]
     {
         if let Some(exe) = resolve_opencode_exe() {
@@ -878,13 +1050,16 @@ fn run_capture(program: &str, args: &[&str]) -> Option<String> {
 }
 
 /// Spawn `opencode run --format json [-f <image>] -m <model> "<prompt>"` and
-/// return the child `Child` (or an error).
+/// return the child `Child` (or an error). `program`/`shell` come from
+/// `opencode_command` — the caller resolves the launcher once so it can be
+/// logged and reused by every retry attempt.
 fn spawn_opencode_with_file(
+    program: &str,
+    shell: Option<&'static str>,
     prompt: &str,
     model: &str,
     image_file: Option<&PathBuf>,
 ) -> Result<Child, String> {
-    let (program, shell) = opencode_command()?;
     let mut args: Vec<String> = vec![
         "run".into(),
         "--format".into(),
@@ -901,7 +1076,7 @@ fn spawn_opencode_with_file(
         args.push(img.to_string_lossy().into_owned());
     }
 
-    let mut command = Command::new(&program);
+    let mut command = Command::new(program);
     if let Some(flag) = shell {
         // Windows shim fallback: cmd.exe /C opencode …
         command.arg(flag).arg("opencode");
@@ -916,8 +1091,13 @@ fn spawn_opencode_with_file(
 
 /// Spawn with no attached image — exercised by the text-only spawn test.
 #[cfg(test)]
-fn spawn_opencode(prompt: &str, model: &str) -> Result<Child, String> {
-    spawn_opencode_with_file(prompt, model, None)
+fn spawn_opencode(
+    program: &str,
+    shell: Option<&'static str>,
+    prompt: &str,
+    model: &str,
+) -> Result<Child, String> {
+    spawn_opencode_with_file(program, shell, prompt, model, None)
 }
 
 /// Wait for the OpenCode CLI child to finish, with a timeout.
@@ -1546,7 +1726,7 @@ mod tests {
     #[test]
     fn real_open_code_spawn_produces_json_reply() {
         let (program, shell) =
-            opencode_command().expect("opencode_command() must resolve a launcher");
+            opencode_command(None).expect("opencode_command() must resolve a launcher");
         println!("opencode_resolved program={program} shell={shell:?}");
         #[cfg(windows)]
         {
@@ -1557,8 +1737,8 @@ mod tests {
         }
         let prompt = r#"You are a professional technical analyst. Reply with STRICT JSON only and no markdown fences, exactly matching this shape: {"pattern": null, "trend": null, "signal": "neutral", "support": null, "resistance": null, "indicators": [], "observedImage": {"symbol": null, "timeframe": null, "priceScaleVisible": null, "ohlcLegend": null, "indicators": [{"name": "none-visible", "value": null, "visible": false}], "overlays": [], "drawings": [], "crosshairValues": null}, "summary": "ok"} "#;
 
-        let mut child =
-            spawn_opencode(prompt, DEFAULT_MODEL).expect("spawn_opencode() must succeed");
+        let mut child = spawn_opencode(&program, shell, prompt, DEFAULT_MODEL)
+            .expect("spawn_opencode() must succeed");
         println!("opencode_spawn_ok pid={}", child.id());
 
         let (status, stdout, stderr, timed_out) =

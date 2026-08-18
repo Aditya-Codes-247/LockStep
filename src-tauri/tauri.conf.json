@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.whitelistbrowser.app",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "npm run prepare:opencode && npm run dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run prepare:opencode && npm run build",
     "frontendDist": "../build"
   },
   "app": {
@@ -32,6 +32,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": ["binaries/opencode"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

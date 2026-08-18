@@ -1,9 +1,10 @@
-import { api, onAppReady, onBlockedEvent, onExtractionStatus, onTabEvent, onVisualAnalysis } from "./api";
+import { api, onAppReady, onBlockedEvent, onExtractionStatus, onOpenCodeLogin, onTabEvent, onVisualAnalysis } from "./api";
 import type {
   AppConfig,
   BlockedInfo,
   BrowserSettings,
   ExtractionSnapshot,
+  OpenCodeLoginStatus,
   Tab,
   VisualAnalysis,
 } from "./types";
@@ -34,6 +35,10 @@ class AppState {
   visualAnalyses: Record<string, VisualAnalysis> = $state({});
   /** Which brokers are currently running (or awaiting) an analysis. */
   visualPending: Record<string, boolean> = $state({});
+  /** OpenCode CLI authentication state for this user. */
+  opencodeLogin: OpenCodeLoginStatus = $state({ loggedIn: false, providers: [] });
+  /** True while an interactive login window is open and awaiting completion. */
+  opencodeLoginPending = $state(false);
 
   async init() {
     const config = await api.getConfig();
@@ -48,6 +53,7 @@ class AppState {
 
     this.ready = true;
     this.wireEvents();
+    this.refreshLogin();
   }
 
   private wireEvents() {
@@ -56,6 +62,7 @@ class AppState {
     onAppReady(() => this.refreshConfig());
     onExtractionStatus(() => this.pollExtractions());
     onVisualAnalysis((payload) => this.handleVisualAnalysis(payload.broker, payload.analysis));
+    onOpenCodeLogin((status) => this.handleLoginDone(status));
   }
 
   private pollTimer: number | undefined;
@@ -318,6 +325,49 @@ class AppState {
   async clearVisual(broker: string) {
     delete this.visualAnalyses[broker];
     delete this.visualPending[broker];
+  }
+
+  // ---- opencode CLI authentication ----------------------------------------
+
+  async refreshLogin() {
+    try {
+      this.opencodeLogin = await api.loginStatus();
+    } catch {
+      /* non-fatal: status stays at the last known value */
+    }
+  }
+
+  /**
+   * Launch the per-user interactive login. Opens a real terminal window running
+   * `opencode providers login`; the `opencode-login` event updates the status
+   * once the user finishes (or closes) the window.
+   */
+  async loginOpenCode() {
+    if (this.opencodeLoginPending) return;
+    this.opencodeLoginPending = true;
+    try {
+      const status = await api.loginOpenCode();
+      this.opencodeLogin = status;
+      if (status.loggedIn) {
+        this.opencodeLoginPending = false;
+        this.flash("Already authenticated", "ok");
+      } else {
+        this.flash("Authentication console opened — complete the login in the new window", "warn");
+      }
+    } catch (e) {
+      this.opencodeLoginPending = false;
+      this.flash(String(e), "error");
+    }
+  }
+
+  private handleLoginDone(status: OpenCodeLoginStatus) {
+    this.opencodeLogin = status;
+    this.opencodeLoginPending = false;
+    if (status.loggedIn) {
+      this.flash("opencode authentication saved", "ok");
+    } else {
+      this.flash("opencode login was cancelled or did not complete", "warn");
+    }
   }
 
   // ---- config mutations -------------------------------------------------

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-opencode-login"
+description = "Enables the opencode_login command without any pre-configured scope."
+commands.allow = ["opencode_login"]
+
+[[permission]]
+identifier = "deny-opencode-login"
+description = "Denies the opencode_login command without any pre-configured scope."
+commands.deny = ["opencode_login"]

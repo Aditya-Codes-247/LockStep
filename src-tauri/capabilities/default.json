@@ -28,6 +28,8 @@
     "allow-list-extractions",
     "allow-get-visual-analysis",
     "allow-list-visual-analyses",
+    "allow-opencode-login",
+    "allow-opencode-login-status",
     "allow-trigger-chart-capture"
   ]
 }

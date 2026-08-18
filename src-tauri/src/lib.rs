@@ -64,6 +64,8 @@ pub fn run() {
             opencode::capture_and_analyze_chart,
             opencode::get_visual_analysis,
             opencode::list_visual_analyses,
+            opencode::opencode_login,
+            opencode::opencode_login_status,
             commands::trigger_chart_capture,
         ])
         .run(tauri::generate_context!())

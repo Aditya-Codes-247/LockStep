@@ -7,6 +7,7 @@ import type {
   CaptureAck,
   ExtractionSnapshot,
   ExtractionStatus,
+  OpenCodeLoginStatus,
   Tab,
   UrlCheck,
   VisualAnalysis,
@@ -47,6 +48,10 @@ export const api = {
     invoke<string>("trigger_chart_capture", { broker }),
   captureAndAnalyzeChart: (payload: unknown) =>
     invoke<CaptureAck>("capture_and_analyze_chart", { payload }),
+
+  // opencode CLI per-user authentication.
+  loginOpenCode: () => invoke<OpenCodeLoginStatus>("opencode_login"),
+  loginStatus: () => invoke<OpenCodeLoginStatus>("opencode_login_status"),
 };
 
 /** Subscribe to backend → frontend events, typed per event. */
@@ -68,4 +73,9 @@ export function onExtractionStatus(handler: (payload: ExtractionStatus) => void)
 
 export function onVisualAnalysis(handler: (payload: VisualAnalysisEvent) => void) {
   return listen<VisualAnalysisEvent>("visual-analysis", (e) => handler(e.payload));
+}
+
+/** Fired when an interactive `opencode providers login` session finishes. */
+export function onOpenCodeLogin(handler: (payload: OpenCodeLoginStatus) => void) {
+  return listen<OpenCodeLoginStatus>("opencode-login", (e) => handler(e.payload));
 }

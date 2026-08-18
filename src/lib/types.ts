@@ -195,3 +195,12 @@ export interface VisualAnalysisEvent {
   symbol: string;
   analysis: VisualAnalysis;
 }
+
+// ---- bundled opencode CLI authentication -----------------------------------
+
+/** Snapshot of the opencode CLI credential state for the current user. */
+export interface OpenCodeLoginStatus {
+  loggedIn: boolean;
+  providers: string[];
+  credsPath?: string | null;
+}
